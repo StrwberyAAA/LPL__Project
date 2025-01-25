@@ -1,0 +1,37 @@
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
+
+# Setting up
+options = Options()
+options.add_argument("--log-level=3")
+# options.add_argument('--headless')  # Uncomment to run in headless mode
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+
+driver.get("https://apnews.com/search?q=#nt=navsearch")
+search_bar = WebDriverWait(driver, 5).until(
+    EC.element_to_be_clickable((By.XPATH, "//input[@class='SearchResultsModule-formInput' and @name='q']"))
+)
+
+# submit stuff
+search_bar.send_keys("hello")
+
+search_button = WebDriverWait(driver, 5).until(
+    EC.element_to_be_clickable((By.XPATH, "//button[@class='SearchResultsModule-formButton']"))
+)
+search_button.click()
+
+# wait
+results_element = WebDriverWait(driver, 10).until(
+    EC.visibility_of_element_located((By.XPATH, "//span[@class='SearchResultsModule-count-desktop']"))
+)
+print("Search results loaded:", results_element.text)
+
+WebDriverWait(driver, 10).until(
+    lambda driver: results_element.is_displayed()
+)
+

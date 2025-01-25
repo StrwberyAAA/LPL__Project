@@ -8,6 +8,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.select import Select
+import os
 
 # Setting up
 options = Options()
@@ -50,11 +51,14 @@ def extractTimestamps(url):
 
     # Find all timestamps
     timestamp_elements = soup.find_all('span', class_='Timestamp-template')
+    with open("timestamps.txt", "w", encoding="utf-8") as file:
+        for timestamp_element in timestamp_elements:
+            timestamp_text = timestamp_element.text.strip()
+            file.write(timestamp_text + "\n")
+    os.startfile("timestamps.txt")
 
-    # Filter timestamps within a week from today, its in a rray that holds nothing whoops palceholder
-    filtered_timestamps = []
     driver.quit()
-    return filtered_timestamps
+    return timestamp_elements
 
 url = "https://apnews.com/search?q=#nt=navsearch"
 recent_timestamps = extractTimestamps(url)

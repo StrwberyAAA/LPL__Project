@@ -103,7 +103,10 @@ def filterTimestamps():
                 filtered_timestamps.append(timestamp)
 
     # Write the filtered timestamps to a new file
-    with open("filtered_timestamps.txt", "w", encoding="utf-8") as file:
+    new_filename = "filtered_timestamps_" + datetime.now().strftime("%Y%m%d%H%M%S") + ".txt"
+    #change pathway to ur pathway GUYS!
+    output_path = os.path.join("C:\\Users\\alexu", new_filename)
+    with open(output_path, "w", encoding="utf-8") as file:
         for timestamp in filtered_timestamps:
             file.write(timestamp + "\n")
 

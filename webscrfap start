@@ -11,39 +11,43 @@ from datetime import datetime, timedelta
 from textblob import TextBlob
 import os
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import simpledialog, messagebox
 
 # Setting up
 options = Options()
 options.add_argument("--log-level=3")
 options.add_argument('--headless')
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-searchTopic = "trump"
 
+# Thats crazy how you can just get the search topic like this
+def getSearchTopic():
+    root = tk.Tk()
+    root.withdraw() 
+    search_topic = simpledialog.askstring("Input", "Enter the stock, CEO, or associated person to look into:")
+    root.destroy() 
+    return search_topic
+
+searchTopic = getSearchTopic()
+
+# We need to figure out whats revelant 
 def extractTimestamps(url):
     driver.get(url)
-
-    # Search for the search topic
-    search_bar = WebDriverWait(driver, 5).until(
+    search_bar = WebDriverWait(driver, 1).until(
         EC.element_to_be_clickable((By.XPATH, "//input[@class='SearchResultsModule-formInput' and @name='q']"))
     )
     search_bar.send_keys(searchTopic)
 
-    search_button = WebDriverWait(driver, 5).until(
+    search_button = WebDriverWait(driver, 1).until(
         EC.element_to_be_clickable((By.XPATH, "//button[@class='SearchResultsModule-formButton']"))
     )
     search_button.click()
 
-    # Wait for the dropdown to be present
-    select_element = WebDriverWait(driver, 5).until(
+    select_element = WebDriverWait(driver, 1).until(
         EC.presence_of_element_located((By.XPATH, "//select[@class='Select-input']"))
     )
 
     select_object = Select(select_element)
     select_object.select_by_value("3")
-
-    today = datetime.now()
-    one_week_ago = today - timedelta(days=7)
 
     html_content = driver.page_source
     soup = BeautifulSoup(html_content, 'html.parser')
@@ -52,7 +56,7 @@ def extractTimestamps(url):
     )
     print("Search results loaded:", results_element.text)
 
-    # Find all timestamps
+    # Find all timestamps we need this later
     timestamp_elements = soup.find_all('span', class_='Timestamp-template')
     with open("timestamps.txt", "w", encoding="utf-8") as file:
         for timestamp_element in timestamp_elements:
@@ -74,11 +78,11 @@ def filterTimestamps():
 
             # Try different date formats
             date_formats = [
-                "%B %d, %Y",  # e.g., December 12, 2024
-                "%B %d",      # e.g., January 22
-                "%Y-%m-%d",   # e.g., 2024-12-12
-                "%A",         # e.g., Yesterday
-                "%I %p"       # e.g., 3 hours ago
+                "%B %d, %Y",  
+                "%B %d",     
+                "%Y-%m-%d",  
+                "%A",       
+                "%I %p"     
             ]
 
             timestamp_date = None
@@ -101,7 +105,7 @@ def filterTimestamps():
             if timestamp_date and week_ago <= timestamp_date <= today:
                 filtered_timestamps.append(timestamp)
 
-    # Write the filtered timestamps to a new file
+    # Write the filtered timestamps to a new filetrumpo    new_filename = "filtered_timestamps_" + datetime.now().strftime("%Y%m%d%H%M%S") + ".txt"
     new_filename = "filtered_timestamps_" + datetime.now().strftime("%Y%m%d%H%M%S") + ".txt"
     output_path = os.path.join("C:\\Users\\alexu\\Downloads", new_filename)
     with open(output_path, "w", encoding="utf-8") as file:
@@ -130,55 +134,32 @@ def extractTitlesAndDescriptions(driver):
     with open(output_path, "w", encoding="utf-8") as file:
         for title, description in titles_and_descriptions:
             file.write(f"Title: {title}\nDescription: {description}\n\n")
-
-
     return titles_and_descriptions
 
-def performSentimentAnalysis(titles_and_descriptions):
+def performSentimentAnalysis(search_topic, titles_and_descriptions):
     total_polarity = 0
-    total_subjectivity = 0
     count = 0
 
+    # Calculate total polarity
     for title, description in titles_and_descriptions:
-        title_sentiment = TextBlob(title).sentiment
-        description_sentiment = TextBlob(description).sentiment
-        
-        # Skew polarity toward negative
-        biased_title_polarity = title_sentiment.polarity - 0.2  # Reduce polarity by 0.2
-        biased_description_polarity = description_sentiment.polarity - 0.2
+        total_polarity += TextBlob(title).sentiment.polarity + TextBlob(description).sentiment.polarity
+        count += 2  # Counting both title and description
 
-        total_polarity += biased_title_polarity + biased_description_polarity
-        total_subjectivity += title_sentiment.subjectivity + description_sentiment.subjectivity
-        count += 2  # Since we are adding both title and description sentiments
+    # Calculate average polarity
+    avg_polarity = total_polarity / count if count > 0 else 0
 
-    avg_polarity = total_polarity / count
-    avg_subjectivity = total_subjectivity / count
-
-    # Force result negative if polarity is close to neutral
-    avg_polarity = avg_polarity if avg_polarity < 0 else -0.1
-
-    return avg_polarity, avg_subjectivity
-def showSentimentPopup(search_topic, avg_polarity, avg_subjectivity):
+    # Determine sentiment message
     sentiment_message = f"Sentiment Analysis for '{search_topic}':\n\n"
+    if avg_polarity > 0:
+        sentiment_message += "Overall Sentiment: Positive\n"
+        sentiment_message += "Advice: The sentiment is positive. This topic has a good reputation. Consider looking into it further."
+    else:
+        sentiment_message += "Overall Sentiment: Negative\n"
+        sentiment_message += "Advice: The sentiment is negative. There might be concerns or risks associated. Proceed with caution."
 
-    # Force the sentiment to display negative advice
-    sentiment_message += "\nOverall Sentiment: Negative\n"
-    sentiment_message += "Advice: The sentiment is negative. They have a bad reputation right now. Maybe avoid investing."
-
-    # Print sentiment analysis result in the terminal
-    print(sentiment_message)
-
-    # Show sentiment analysis result in a popup
     root = tk.Tk()
-    root.withdraw()  # Hide the root window
+    root.withdraw()  
     messagebox.showinfo("Sentiment Analysis Result", sentiment_message)
-
-# Main execution
-url = "https://apnews.com/search?q=#nt=navsearch"
-recent_timestamps = extractTimestamps(url)
-
-# Now filter the timestamps
-filtered_timestamps = filterTimestamps()
 
 def showBigWarningPopup():
     root = tk.Tk()
@@ -188,24 +169,23 @@ def showBigWarningPopup():
         "DON'T INVEST INTO TRUMP COIN: High volatility and ethical concerns flagged by experts."
     )
 
+# WE DO MAIN NOW GOODLUCK EVERYONE ELSE
+url = "https://apnews.com/search?q=#nt=navsearch"
+recent_timestamps = extractTimestamps(url)
+filtered_timestamps = filterTimestamps()
+
 if filtered_timestamps:
     print("Filtered timestamps within a week:")
     for timestamp in filtered_timestamps:
         print(timestamp)
 
-    # Extract titles and descriptions using the same driver instance
     titles_and_descriptions = extractTitlesAndDescriptions(driver)
-
-    # Perform sentiment analysis
-    avg_polarity, avg_subjectivity = performSentimentAnalysis(titles_and_descriptions)
-    showSentimentPopup(searchTopic, avg_polarity, avg_subjectivity)
-    if searchTopic.lower() == "trump" and avg_polarity < 0:
+    avg_polarity = performSentimentAnalysis(searchTopic, titles_and_descriptions)
+    if avg_polarity is not None and searchTopic.lower() == "trump" and avg_polarity < 0:
         showBigWarningPopup()
-     # Quit the driver
+
     driver.quit()
 
 else:
     print("No timestamps found within a week from the current date.")
-
-    # Quit the driver
     driver.quit()

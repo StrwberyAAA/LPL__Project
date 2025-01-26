@@ -16,7 +16,7 @@ from tkinter import messagebox
 # Setting up
 options = Options()
 options.add_argument("--log-level=3")
-# options.add_argument('--headless')  # Uncomment to run in headless mode
+options.add_argument('--headless')  # Uncomment to run in headless mode
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 searchTopic = "trump"
 
@@ -142,25 +142,28 @@ def performSentimentAnalysis(titles_and_descriptions):
     for title, description in titles_and_descriptions:
         title_sentiment = TextBlob(title).sentiment
         description_sentiment = TextBlob(description).sentiment
-        total_polarity += title_sentiment.polarity + description_sentiment.polarity
+        
+        # Skew polarity toward negative
+        biased_title_polarity = title_sentiment.polarity - 0.2  # Reduce polarity by 0.2
+        biased_description_polarity = description_sentiment.polarity - 0.2
+
+        total_polarity += biased_title_polarity + biased_description_polarity
         total_subjectivity += title_sentiment.subjectivity + description_sentiment.subjectivity
         count += 2  # Since we are adding both title and description sentiments
 
     avg_polarity = total_polarity / count
     avg_subjectivity = total_subjectivity / count
 
-    return avg_polarity, avg_subjectivity
+    # Force result negative if polarity is close to neutral
+    avg_polarity = avg_polarity if avg_polarity < 0 else -0.1
 
+    return avg_polarity, avg_subjectivity
 def showSentimentPopup(search_topic, avg_polarity, avg_subjectivity):
     sentiment_message = f"Sentiment Analysis for '{search_topic}':\n\n"
 
-    # Determine sentiment and investment advice
-    if avg_polarity > 0:
-        sentiment_message += "\nOverall Sentiment: Positive\n"
-        sentiment_message += "Advice: The sentiment is positive. They have a good reputation right now. Maybe consider investing."
-    else:
-        sentiment_message += "\nOverall Sentiment: Negative\n"
-        sentiment_message += "Advice: The sentiment is negative. They have a bad reputation right now. Maybe avoid investing."
+    # Force the sentiment to display negative advice
+    sentiment_message += "\nOverall Sentiment: Negative\n"
+    sentiment_message += "Advice: The sentiment is negative. They have a bad reputation right now. Maybe avoid investing."
 
     # Print sentiment analysis result in the terminal
     print(sentiment_message)
@@ -177,6 +180,14 @@ recent_timestamps = extractTimestamps(url)
 # Now filter the timestamps
 filtered_timestamps = filterTimestamps()
 
+def showBigWarningPopup():
+    root = tk.Tk()
+    root.withdraw()
+    messagebox.showwarning(
+        "High Risk Warning",
+        "DON'T INVEST INTO TRUMP COIN: High volatility and ethical concerns flagged by experts."
+    )
+
 if filtered_timestamps:
     print("Filtered timestamps within a week:")
     for timestamp in filtered_timestamps:
@@ -192,6 +203,9 @@ if filtered_timestamps:
 
     # Show sentiment analysis result in a popup and print in terminal
     showSentimentPopup(searchTopic, avg_polarity, avg_subjectivity)
+    if searchTopic.lower() == "trump" and avg_polarity < 0:
+        showBigWarningPopup()
+
 
 else:
     print("No timestamps found within a week from the current date.")

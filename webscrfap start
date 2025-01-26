@@ -16,7 +16,7 @@ from tkinter import messagebox
 # Setting up
 options = Options()
 options.add_argument("--log-level=3")
-options.add_argument('--headless')  # Uncomment to run in headless mode
+options.add_argument('--headless')
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 searchTopic = "trump"
 
@@ -198,14 +198,11 @@ if filtered_timestamps:
 
     # Perform sentiment analysis
     avg_polarity, avg_subjectivity = performSentimentAnalysis(titles_and_descriptions)
-     # Quit the driver
-    driver.quit()
-
-    # Show sentiment analysis result in a popup and print in terminal
     showSentimentPopup(searchTopic, avg_polarity, avg_subjectivity)
     if searchTopic.lower() == "trump" and avg_polarity < 0:
         showBigWarningPopup()
-
+     # Quit the driver
+    driver.quit()
 
 else:
     print("No timestamps found within a week from the current date.")

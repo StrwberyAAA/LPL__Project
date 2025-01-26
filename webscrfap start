@@ -1,4 +1,3 @@
-from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -9,6 +8,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.select import Select
 import os
+from datetime import datetime, timedelta
 
 # Setting up
 options = Options()
@@ -60,12 +60,65 @@ def extractTimestamps(url):
     driver.quit()
     return timestamp_elements
 
+
+
+def filterTimestamps():
+    with open("timestamps.txt", "r", encoding="utf-8") as file:
+        filteredstamps = file.readlines()
+
+        today = datetime.now()
+        week_ago = today - timedelta(days=7)
+
+        filtered_timestamps = []
+        for timestamp in filteredstamps:
+            timestamp = timestamp.strip()
+
+            # Try different date formats
+            date_formats = [
+                "%B %d, %Y",  # e.g., December 12, 2024
+                "%B %d",      # e.g., January 22
+                "%Y-%m-%d",   # e.g., 2024-12-12
+                "%A",         # e.g., Yesterday
+                "%I %p"       # e.g., 3 hours ago
+            ]
+
+            timestamp_date = None
+            for date_format in date_formats:
+                try:
+                    timestamp_date = datetime.strptime(timestamp, date_format)
+                    if date_format == "%B %d":
+                        timestamp_date = timestamp_date.replace(year=today.year)
+                    elif date_format == "%A":
+                        if timestamp.lower() == "yesterday":
+                            timestamp_date = today - timedelta(days=1)
+                    elif date_format == "%I %p":
+                        if "hour" in timestamp:
+                            hours_ago = int(timestamp.split()[0])
+                            timestamp_date = today - timedelta(hours=hours_ago)
+                    break
+                except ValueError:
+                    continue
+
+            if timestamp_date and week_ago <= timestamp_date <= today:
+                filtered_timestamps.append(timestamp)
+
+    # Write the filtered timestamps to a new file
+    with open("filtered_timestamps.txt", "w", encoding="utf-8") as file:
+        for timestamp in filtered_timestamps:
+            file.write(timestamp + "\n")
+
+    return filtered_timestamps
+
+# Main execution
 url = "https://apnews.com/search?q=#nt=navsearch"
 recent_timestamps = extractTimestamps(url)
 
-if recent_timestamps:
+# Now filter the timestamps
+filtered_timestamps = filterTimestamps()
+
+if filtered_timestamps:
     print("Filtered timestamps within a week:")
-    for timestamp in recent_timestamps:
+    for timestamp in filtered_timestamps:
         print(timestamp)
 else:
     print("No timestamps found within a week from the current date.")

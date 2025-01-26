@@ -7,23 +7,27 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.select import Select
 from bs4 import BeautifulSoup
-import os
 from datetime import datetime, timedelta
+from textblob import TextBlob
+import os
+import tkinter as tk
+from tkinter import messagebox
 
 # Setting up
 options = Options()
 options.add_argument("--log-level=3")
 # options.add_argument('--headless')  # Uncomment to run in headless mode
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+searchTopic = "trump"
 
 def extractTimestamps(url):
     driver.get(url)
 
-    # Search for "trump" (replace with your desired search term)
+    # Search for the search topic
     search_bar = WebDriverWait(driver, 5).until(
         EC.element_to_be_clickable((By.XPATH, "//input[@class='SearchResultsModule-formInput' and @name='q']"))
     )
-    search_bar.send_keys("trump")
+    search_bar.send_keys(searchTopic)
 
     search_button = WebDriverWait(driver, 5).until(
         EC.element_to_be_clickable((By.XPATH, "//button[@class='SearchResultsModule-formButton']"))
@@ -54,7 +58,6 @@ def extractTimestamps(url):
         for timestamp_element in timestamp_elements:
             timestamp_text = timestamp_element.text.strip()
             file.write(timestamp_text + "\n")
-    os.startfile("timestamps.txt")
 
     return timestamp_elements
 
@@ -128,8 +131,44 @@ def extractTitlesAndDescriptions(driver):
         for title, description in titles_and_descriptions:
             file.write(f"Title: {title}\nDescription: {description}\n\n")
 
-    os.startfile(output_path)
+
     return titles_and_descriptions
+
+def performSentimentAnalysis(titles_and_descriptions):
+    total_polarity = 0
+    total_subjectivity = 0
+    count = 0
+
+    for title, description in titles_and_descriptions:
+        title_sentiment = TextBlob(title).sentiment
+        description_sentiment = TextBlob(description).sentiment
+        total_polarity += title_sentiment.polarity + description_sentiment.polarity
+        total_subjectivity += title_sentiment.subjectivity + description_sentiment.subjectivity
+        count += 2  # Since we are adding both title and description sentiments
+
+    avg_polarity = total_polarity / count
+    avg_subjectivity = total_subjectivity / count
+
+    return avg_polarity, avg_subjectivity
+
+def showSentimentPopup(search_topic, avg_polarity, avg_subjectivity):
+    sentiment_message = f"Sentiment Analysis for '{search_topic}':\n\n"
+
+    # Determine sentiment and investment advice
+    if avg_polarity > 0:
+        sentiment_message += "\nOverall Sentiment: Positive\n"
+        sentiment_message += "Advice: The sentiment is positive. They have a good reputation right now. Maybe consider investing."
+    else:
+        sentiment_message += "\nOverall Sentiment: Negative\n"
+        sentiment_message += "Advice: The sentiment is negative. They have a bad reputation right now. Maybe avoid investing."
+
+    # Print sentiment analysis result in the terminal
+    print(sentiment_message)
+
+    # Show sentiment analysis result in a popup
+    root = tk.Tk()
+    root.withdraw()  # Hide the root window
+    messagebox.showinfo("Sentiment Analysis Result", sentiment_message)
 
 # Main execution
 url = "https://apnews.com/search?q=#nt=navsearch"
@@ -145,10 +184,17 @@ if filtered_timestamps:
 
     # Extract titles and descriptions using the same driver instance
     titles_and_descriptions = extractTitlesAndDescriptions(driver)
+
+    # Perform sentiment analysis
+    avg_polarity, avg_subjectivity = performSentimentAnalysis(titles_and_descriptions)
+     # Quit the driver
     driver.quit()
 
-    for title, description in titles_and_descriptions:
-        print("Title:", title)
-        print("Description:", description)
+    # Show sentiment analysis result in a popup and print in terminal
+    showSentimentPopup(searchTopic, avg_polarity, avg_subjectivity)
+
 else:
     print("No timestamps found within a week from the current date.")
+
+    # Quit the driver
+    driver.quit()

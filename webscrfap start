@@ -14,11 +14,11 @@ from datetime import datetime, timedelta
 options = Options()
 options.add_argument("--log-level=3")
 # options.add_argument('--headless')  # Uncomment to run in headless mode
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
 def extractTimestamps(url):
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
     driver.get(url)
-  
+
     # Search for "trump" (replace with your desired search term)
     search_bar = WebDriverWait(driver, 5).until(
         EC.element_to_be_clickable((By.XPATH, "//input[@class='SearchResultsModule-formInput' and @name='q']"))
@@ -48,7 +48,6 @@ def extractTimestamps(url):
     )
     print("Search results loaded:", results_element.text)
 
-
     # Find all timestamps
     timestamp_elements = soup.find_all('span', class_='Timestamp-template')
     with open("timestamps.txt", "w", encoding="utf-8") as file:
@@ -59,8 +58,6 @@ def extractTimestamps(url):
 
     driver.quit()
     return timestamp_elements
-
-
 
 def filterTimestamps():
     with open("timestamps.txt", "r", encoding="utf-8") as file:
@@ -104,13 +101,36 @@ def filterTimestamps():
 
     # Write the filtered timestamps to a new file
     new_filename = "filtered_timestamps_" + datetime.now().strftime("%Y%m%d%H%M%S") + ".txt"
-    #change pathway to ur pathway GUYS!
-    output_path = os.path.join("C:\\Users\\alexu", new_filename)
+    output_path = os.path.join("C:\\Users\\alexu\\Downloads", new_filename)
     with open(output_path, "w", encoding="utf-8") as file:
         for timestamp in filtered_timestamps:
             file.write(timestamp + "\n")
 
     return filtered_timestamps
+
+def extractTitlesAndDescriptions(driver):
+    html_content = driver.page_source
+    soup = BeautifulSoup(html_content, 'html.parser')
+
+    titles_and_descriptions = []
+
+    title_elements = soup.find_all('span', class_='PagePromoContentIcons-text')
+    description_elements = soup.find_all('div', class_='PagePromo-description')
+
+    for title, description in zip(title_elements, description_elements):
+        title_text = title.text.strip()
+        description_text = description.text.strip()
+        titles_and_descriptions.append((title_text, description_text))
+
+    # Write titles and descriptions to a new file
+    new_filename = "titles_descriptions_" + datetime.now().strftime("%Y%m%d%H%M%S") + ".txt"
+    output_path = os.path.join("C:\\Users\\alexu\\Downloads", new_filename)
+    with open(output_path, "w", encoding="utf-8") as file:
+        for title, description in titles_and_descriptions:
+            file.write(f"Title: {title}\nDescription: {description}\n\n")
+
+    os.startfile(output_path)
+    return titles_and_descriptions
 
 # Main execution
 url = "https://apnews.com/search?q=#nt=navsearch"
@@ -123,5 +143,15 @@ if filtered_timestamps:
     print("Filtered timestamps within a week:")
     for timestamp in filtered_timestamps:
         print(timestamp)
+
+    # Extract titles and descriptions
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    driver.get(url)
+    titles_and_descriptions = extractTitlesAndDescriptions(driver)
+    driver.quit()
+
+    for title, description in titles_and_descriptions:
+        print("Title:", title)
+        print("Description:", description)
 else:
     print("No timestamps found within a week from the current date.")
